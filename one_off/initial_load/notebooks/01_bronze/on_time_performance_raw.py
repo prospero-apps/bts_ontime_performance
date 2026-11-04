@@ -1,5 +1,22 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
+import sys
+import os
 from pyspark.sql.functions import current_timestamp
+
+# COMMAND ----------
+
+project_root = os.path.abspath(os.path.join(os.getcwd(), "../.."))
+
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# COMMAND ----------
+
+from modules.transformations.metadata import add_processed_timestamp
 
 # COMMAND ----------
 
@@ -40,8 +57,11 @@ df = (spark.read.format("csv")
         "SecurityDelay",
         "LateAircraftDelay"
     )
-    .withColumn("processed_timestamp", current_timestamp())
 )
+
+# COMMAND ----------
+
+df = add_processed_timestamp(df)
 
 # COMMAND ----------
 

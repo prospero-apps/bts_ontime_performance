@@ -1,7 +1,20 @@
 # Databricks notebook source
+import sys
+import os
 from pyspark.sql.functions import current_timestamp
 import re
 from pyspark.sql.functions import max as spark_max, to_date
+
+# COMMAND ----------
+
+project_root = os.path.abspath(os.path.join(os.getcwd(), "../.."))
+
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# COMMAND ----------
+
+from modules.transformations.metadata import add_processed_timestamp
 
 # COMMAND ----------
 
@@ -65,9 +78,10 @@ if new_paths:
         "NASDelay",
         "SecurityDelay",
         "LateAircraftDelay"
-    )
-    .withColumn("processed_timestamp", current_timestamp())
+    )    
   )
+
+  df = add_processed_timestamp(df)
 
 # COMMAND ----------
 

@@ -1,7 +1,21 @@
 # Databricks notebook source
+import sys
+import os
 from pyspark.sql.functions import current_timestamp, col, lit, length, substring, when, expr, coalesce, to_date
 from pyspark.sql.functions import max as spark_max
 from pyspark.sql.types import TimestampType, DateType, IntegerType, DoubleType
+
+# COMMAND ----------
+
+project_root = os.path.abspath(os.path.join(os.getcwd(), "../.."))
+
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# COMMAND ----------
+
+from modules.utils.time_utils import at_hhmm, plus_minutes, arrival_near, nearest_to
+from modules.utils.type_utils import to_int, to_bool
 
 # COMMAND ----------
 
@@ -21,46 +35,6 @@ if watermark is not None:
     df = df.filter(col("processed_timestamp") > watermark)
 
 # COMMAND ----------
-
-# helpers: 
-
-# build TIMESTAMP_NTZ (local airport time, no time zone) values from HHmm strings
-def at_hhmm(date_col, hhmm_col_name):
-    # date + HH hours + mm minutes; make_dt_interval rolls '2400' over to 00:00 of the next day
-    return to_date(date_col).cast("timestamp_ntz") + expr(
-        f"make_dt_interval(0, int(substr({hhmm_col_name}, 1, 2)), int(substr({hhmm_col_name}, 3, 2)), 0)"
-    )
-
-def plus_minutes(ts_col, minutes_col_name):
-    return ts_col + expr(f"make_dt_interval(0, 0, int(cast({minutes_col_name} as double)), 0)")
-
-def arrival_near(departure_ts, hhmm_col_name):
-    # arrival clock time placed on the departure date, then shifted by one day if needed.
-    # local arrival - local departure = flight duration + time zone difference, which is within [-6h, +18h] for US flights
-    naive = at_hhmm(departure_ts, hhmm_col_name)
-    return (
-        when(naive < departure_ts - expr("INTERVAL 6 HOURS"), naive + expr("INTERVAL 1 DAY"))
-        .when(naive > departure_ts + expr("INTERVAL 18 HOURS"), naive - expr("INTERVAL 1 DAY"))
-        .otherwise(naive)
-    )
-
-def nearest_to(ref_ts, hhmm_col_name):
-    # clock time placed on whichever day (previous / same / next) is within 12 hours of a reference timestamp
-    # in the same time zone, e.g. wheels-off vs. actual departure, wheels-on vs. actual arrival
-    naive = at_hhmm(ref_ts, hhmm_col_name)
-    return (
-        when(naive < ref_ts - expr("INTERVAL 12 HOURS"), naive + expr("INTERVAL 1 DAY"))
-        .when(naive > ref_ts + expr("INTERVAL 12 HOURS"), naive - expr("INTERVAL 1 DAY"))
-        .otherwise(naive)
-    )
-
-def to_int(col_name):
-    # source values look like '125.00'; ANSI mode rejects a direct string -> int cast, so go via double
-    return col(col_name).cast(DoubleType()).cast(IntegerType())
-
-def to_bool(col_name):
-    # source flags are '0.00' / '1.00' -> false / true (a direct string -> boolean cast fails in ANSI mode)
-    return col(col_name).cast(DoubleType()) == 1.0
 
 # departures: actual = scheduled + DepDelay (correct date when a delayed flight leaves after midnight);
 # fall back to FlightDate + DepTime when DepDelay is missing

@@ -1,22 +1,36 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
+import sys
+import os
 from pyspark.sql.functions import current_timestamp
 
 # COMMAND ----------
 
-df_carriers_lookup = spark.read.format("csv").option("header", "true").load("/Volumes/bts_ontime/00_landing/data_sources/lookups/L_UNIQUE_CARRIERS.csv")
-df_carriers_lookup.write.mode("overwrite").saveAsTable("bts_ontime.01_bronze.carriers_lookup")
+project_root = os.path.abspath(os.path.join(os.getcwd(), "../.."))
+
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 # COMMAND ----------
 
-df_state_lookup = spark.read.format("csv").option("header", "true").load("/Volumes/bts_ontime/00_landing/data_sources/lookups/L_STATE_ABR_AVIATION.csv")
-df_state_lookup.write.mode("overwrite").saveAsTable("bts_ontime.01_bronze.state_lookup")
+from modules.initialization.lookup_initializer import initialize_lookup_table
 
 # COMMAND ----------
 
-df_airport_lookup = spark.read.format("csv").option("header", "true").load("/Volumes/bts_ontime/00_landing/data_sources/lookups/L_AIRPORT.csv")
-df_airport_lookup.write.mode("overwrite").saveAsTable("bts_ontime.01_bronze.airport_lookup")
+# DBTITLE 1,Load carriers lookup
+initialize_lookup_table("L_UNIQUE_CARRIERS", "carriers_lookup")
 
 # COMMAND ----------
 
-df_cancellation_reason_lookup = spark.read.format("csv").option("header", "true").load("/Volumes/bts_ontime/00_landing/data_sources/lookups/L_CANCELLATION.csv")
-df_cancellation_reason_lookup.write.mode("overwrite").saveAsTable("bts_ontime.01_bronze.cancellation_reason_lookup")
+initialize_lookup_table("L_STATE_ABR_AVIATION", "state_lookup")
+
+# COMMAND ----------
+
+initialize_lookup_table("L_AIRPORT", "airport_lookup")
+
+# COMMAND ----------
+
+initialize_lookup_table("L_CANCELLATION", "cancellation_reason_lookup")
